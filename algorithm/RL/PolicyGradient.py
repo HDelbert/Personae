@@ -86,15 +86,17 @@ class Algorithm(BaseRLTFModel):
             for episode in range(self.episodes):
                 self.log_loss(episode)
                 s = self.env.reset(self.mode)
+                
                 while True:
                     c, a, a_index = self.predict(s)
-                    s_next, r, status, info = self.env.forward(c, a)
+                    s_next, r, status, _ = self.env.forward(c, a)
                     self.save_transition(s, a_index, r, s_next)
                     s = s_next
                     if status == self.env.Done:
                         self.train()
                         self.env.trader.log_asset(episode)
                         break
+                
                 if self.enable_saver and episode % 10 == 0:
                     self.save(episode)
 
@@ -107,11 +109,13 @@ class Algorithm(BaseRLTFModel):
         for index in reversed(range(0, len(r_buffer))):
             r_tau = r_tau * self.gamma + r_buffer[index]
             self.r_buffer[index] = r_tau
+        
         _, self.loss = self.session.run([self.train_op, self.loss_fn], {
             self.s: np.array(self.s_buffer),
             self.a: np.array(self.a_buffer),
             self.r: np.array(self.r_buffer)
         })
+        
         self.s_buffer = []
         self.a_buffer = []
         self.r_buffer = []

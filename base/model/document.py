@@ -1,7 +1,7 @@
 # coding=utf-8
 
 from mongoengine import Document
-from mongoengine import StringField, FloatField, DateTimeField
+from mongoengine.fields import StringField, FloatField, DateTimeField
 
 
 class Stock(Document):
@@ -27,9 +27,9 @@ class Stock(Document):
     price_change = FloatField()
     # 5日均价
     ma5 = FloatField()
-    # 10日均量
+    # 10日均价
     ma10 = FloatField()
-    # 20日均量
+    # 20日均价
     ma20 = FloatField()
     # 5日均量
     v_ma5 = FloatField()

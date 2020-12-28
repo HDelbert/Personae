@@ -16,17 +16,17 @@ class Market(object):
 
     def __init__(self, codes, start_date="2008-01-01", end_date="2018-01-01", **options):
 
-        # Initialize codes.
+        # 初始化股票代码
         self.codes = codes
         self.index_codes = []
         self.state_codes = []
 
-        # Initialize dates.
+        # 初始化股票日期
         self.dates = []
         self.t_dates = []
         self.e_dates = []
 
-        # Initialize data frames.
+        # 初始化数据
         self.origin_frames = dict()
         self.scaled_frames = dict()
 
@@ -52,26 +52,33 @@ class Market(object):
     def _init_options(self, **options):
 
         try:
+            # future 期货
+            # stock  股票
             self.m_type = options['market']
         except KeyError:
+            # 股票
             self.m_type = 'stock'
 
         try:
+            # 初始现金
             self.init_cash = options['cash']
         except KeyError:
             self.init_cash = 100000
 
         try:
+            # 日志输出
             self.logger = options['logger']
         except KeyError:
             self.logger = None
 
         try:
+            # 使用序列化数据
             self.use_sequence = options['use_sequence']
         except KeyError:
             self.use_sequence = False
 
         try:
+            # 使用归一化数据
             self.use_normalized = options['use_normalized']
         except KeyError:
             self.use_normalized = True
@@ -90,6 +97,7 @@ class Market(object):
                 self.index_codes.append('sh')
 
         try:
+            # 序列的长度
             self.seq_length = options['seq_length']
         except KeyError:
             self.seq_length = 5
@@ -104,11 +112,17 @@ class Market(object):
         try:
             scaler = options['scaler']
         except KeyError:
+            # 作用：去均值和方差归一化。且是针对每一个特征维度来做的，而不是针对样本。
+            # 使得经过处理的数据符合标准正态分布，即均值为0，标准差为1
             scaler = StandardScaler
 
+        # 状态码为：股票码 和 指数码
         self.state_codes = self.codes + self.index_codes
+        # 为每个状态码分配一个 scaler，预处理归一化
         self.scaler = [scaler() for _ in self.state_codes]
+        # 初始化 trader
         self.trader = Trader(self, cash=self.init_cash)
+        # 区分股票或期货
         self.doc_class = Stock if self.m_type == 'stock' else Future
 
     def _init_data(self, start_date, end_date):
@@ -117,8 +131,10 @@ class Market(object):
         self._init_data_indices()
 
     def _validate_codes(self):
+        # 用来训练的数据不为0
         if not self.state_code_count:
             raise ValueError("Codes cannot be empty.")
+        # 用来训练的数据必须存在
         for code in self.state_codes:
             if not self.doc_class.exist_in_db(code):
                 raise ValueError("Code: {} not exists in database.".format(code))
@@ -127,55 +143,76 @@ class Market(object):
         # Remove invalid codes first.
         self._validate_codes()
         # Init columns and data set.
+        # 使用的数据为：开盘价、最高价、最低价、收盘价、成交量
         columns, dates_set = ['open', 'high', 'low', 'close', 'volume'], set()
         # Load data.
         for index, code in enumerate(self.state_codes):
             # Load instrument docs by code.
+            # 获取日线数据
             instrument_docs = self.doc_class.get_k_data(code, start_date, end_date)
             # Init instrument dicts.
+            # 每日数据转换成字典
             instrument_dicts = [instrument.to_dic() for instrument in instrument_docs]
             # Split dates.
+            # 拿到日期列表
             dates = [instrument[1] for instrument in instrument_dicts]
             # Split instruments.
+            # 拿到交易数据：open/high/low/close/volume/...
             instruments = [instrument[2:] for instrument in instrument_dicts]
             # Update dates set.
+            # 所有股票日期集合，去除重复日期
             dates_set = dates_set.union(dates)
             # Build origin and scaled frames.
             scaler = self.scaler[index]
             scaler.fit(instruments)
+            # 数据预处理：归一化
             instruments_scaled = scaler.transform(instruments)
+            # 原始数据，只要：开盘价、最高价、最低价、收盘价、成交量
             origin_frame = pd.DataFrame(data=instruments, index=dates, columns=columns)
+            # 归一化后的数据，只要：开盘价、最高价、最低价、收盘价、成交量
             scaled_frame = pd.DataFrame(data=instruments_scaled, index=dates, columns=columns)
             # Build code - frame map.
+            # 保存数据
             self.origin_frames[code] = origin_frame
             self.scaled_frames[code] = scaled_frame
+        
         # Init date iter.
+        # 日期排序
         self.dates = sorted(list(dates_set))
         # Rebuild index.
         for code in self.state_codes:
             origin_frame = self.origin_frames[code]
             scaled_frame = self.scaled_frames[code]
+            # 重建数据，将空数据的日期按 method 填充。bfill: 使用后一个数据填充，ffill：使用前一个数据填充
             self.origin_frames[code] = origin_frame.reindex(self.dates, method='bfill')
             self.scaled_frames[code] = scaled_frame.reindex(self.dates, method='bfill')
 
     def _init_env_data(self):
         if not self.use_sequence:
+            # 顺序数据
+            # 每次计算取一天的数据
             self._init_series_data()
         else:
+            # 序列数据：序列长度为 seq_length
+            # 每次计算取一个序列的数据
             self._init_sequence_data()
 
     def _init_series_data(self):
         # Calculate data count.
         self.data_count = len(self.dates[: -1])
         # Calculate bound index.
+        # 计算学习使用的数据边界 0 - bound_index 用来训练，bound_index - end 用来测试
         self.bound_index = int(self.data_count * self.training_data_ratio)
         # Init scaled_x, scaled_y.
         scaled_data_x, scaled_data_y = [], []
-        for index, date in enumerate(self.dates[: -1]):
+        for index, _ in enumerate(self.dates[: -1]):
             # Get current x, y.
+            # 某一天所有股票的数据序列
             x = [self.scaled_frames[code].iloc[index] for code in self.state_codes]
+            # 对应的后一天的数据序列
             y = [self.scaled_frames[code].iloc[index + 1] for code in self.state_codes]
             # Convert x, y to array.
+            # 明确行：一行 N 列
             x = np.array(x).reshape((1, -1))
             y = np.array(y)
             # Append x, y
@@ -193,7 +230,7 @@ class Market(object):
         # Init seqs_x, seqs_y.
         scaled_seqs_x, scaled_seqs_y = [], []
         # Scale to valid dates.
-        for date_index, date in enumerate(self.dates[: -1]):
+        for date_index, _ in enumerate(self.dates[: -1]):
             # Continue until valid date index.
             if date_index < self.seq_length:
                 continue
@@ -202,6 +239,7 @@ class Market(object):
                 # Get scaled frame by code.
                 scaled_frame = self.scaled_frames[code]
                 # Get instrument data x.
+                # 获取当前日期的前 seq_length 的数据
                 instruments_x = scaled_frame.iloc[date_index - self.seq_length: date_index]
                 data_x.append(np.array(instruments_x))
                 # Get instrument data y.

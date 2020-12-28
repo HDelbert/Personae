@@ -3,3 +3,5 @@
 *.log
 *.ipynb_checkpoints
 *.local
+.vscode
+__pycache__
