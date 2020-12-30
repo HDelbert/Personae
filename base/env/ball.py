@@ -11,9 +11,9 @@ class DoubleColorBall(object):
 
     def __init__(self, start_date='2003-01-01', end_date='2020-12-31', **options):
 
+        self.codes = ['double']
+
         self.dates = []
-        self.t_dates = []
-        self.e_dates = []
 
         # Initialize scaled  data x, y.
         self.data_x = None
@@ -22,11 +22,6 @@ class DoubleColorBall(object):
         # Initialize scaled seq data x, y.
         self.seq_data_x = None
         self.seq_data_y = None
-
-        # Initialize flag date.
-        self.next_date = None
-        self.iter_dates = None
-        self.current_date = None
 
         # Initialize parameters.
         self._init_options(**options)
