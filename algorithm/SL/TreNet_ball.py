@@ -74,7 +74,7 @@ class Algorithm(BaseSLTFModel):
 
 def main(args):
 
-    mode = "train"
+    mode = args.mode
     train_steps = args.train_steps
     training_data_ratio = 0.8
 
