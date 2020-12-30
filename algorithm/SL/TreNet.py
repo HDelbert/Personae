@@ -38,7 +38,7 @@ class Algorithm(BaseSLTFModel):
         self.rnn = self.add_rnn(1, self.hidden_size)
         self.rnn_output, _ = tf.nn.dynamic_rnn(self.rnn, self.rnn_x, dtype=tf.float32)
         self.rnn_output = self.rnn_output[:, -1]
-        # self.cnn_x_input is a [-1, 5, 20, 1] tensor, after cnn, the shape will be [-1, 5, 20, 5].
+        # self.cnn_x_input is a [-1, 5, 20, 1] tensor, after cnn, the shape will be [-1, 5, 20, 2].
         self.cnn = self.add_cnn(self.cnn_x, filters=2, kernel_size=[2, 2], pooling_size=[2, 2])
         self.cnn_output = tf.reshape(self.cnn, [-1, self.seq_length * self.x_space * 2])
         self.y_concat = tf.concat([self.rnn_output, self.cnn_output], axis=1)
