@@ -65,7 +65,7 @@ class DoubleColorBall(object):
         except KeyError:
             # 作用：去均值和方差归一化。且是针对每一个特征维度来做的，而不是针对样本。
             # 使得经过处理的数据符合标准正态分布，即均值为0，标准差为1
-            self.scaler = StandardScaler()
+            self.scaler = StandardScaler
 
         self.doc_class = ColorBall
 
@@ -83,9 +83,10 @@ class DoubleColorBall(object):
         self.dates = [ball[1] for ball in ball_dicts]
         balls = [ball[2:] for ball in ball_dicts]
 
-        self.scaler.fit(balls)
+        scaler = self.scaler()
+        scaler.fit(X=balls)
         # 数据预处理：归一化
-        balls_scaled = self.scaler.transform(balls)
+        balls_scaled = scaler.transform(balls)
 
         self.origin_frame = pd.DataFrame(data=balls, index=self.dates, columns=columns)
         self.scaled_frame = pd.DataFrame(data=balls_scaled, index=self.dates, columns=columns)
